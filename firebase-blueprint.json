@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "PropertyListing": {
+      "title": "Property Listing",
+      "description": "Real estate property listings on Mana Gruham",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "price": { "type": "number" },
+        "priceFormatted": { "type": "string", "maxLength": 50 },
+        "type": { "type": "string", "enum": ["house", "apartment", "plot", "commercial", "farm_land"] },
+        "status": { "type": "string", "enum": ["sale", "rent"] },
+        "city": { "type": "string", "maxLength": 50 },
+        "area": { "type": "string", "maxLength": 50 },
+        "beds": { "type": "number" },
+        "baths": { "type": "number" },
+        "size": { "type": "string", "maxLength": 50 },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "isApproved": { "type": "string", "enum": ["Yes", "Pending", "No"] },
+        "contactName": { "type": "string", "maxLength": 100 },
+        "contactPhone": { "type": "string", "maxLength": 15 },
+        "contactEmail": { "type": "string", "maxLength": 100 },
+        "submittedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "facing": { "type": "string", "enum": ["East", "West", "North", "South", "North-East", "South-East", "North-West", "South-West"] },
+        "age": { "type": "number" },
+        "paymentId": { "type": "string" },
+        "paymentAmount": { "type": "number" },
+        "packageName": { "type": "string", "enum": ["basic", "premium", "featured"] },
+        "paymentStatus": { "type": "string", "enum": ["pending", "success", "failed"] },
+        "paymentDate": { "type": "string", "format": "date-time" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "expiryDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "description", "price", "priceFormatted", "type", "status", "city", "area", "size", "imageUrl", "isApproved", "contactName", "contactPhone", "submittedBy", "createdAt"]
+    },
+    "UserFeedback": {
+      "title": "User Feedback",
+      "description": "Feedback and support tickets submitted by users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "contact": { "type": "string", "maxLength": 100 },
+        "type": { "type": "string", "enum": ["feature", "issue"] },
+        "message": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "contact", "type", "message", "createdAt"]
+    },
+    "ManaGruhamPayment": {
+      "title": "Mana Gruham Payment",
+      "description": "Secure UPI offline-verifiable payment transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "paymentPurpose": { "type": "string", "maxLength": 200 },
+        "amount": { "type": "number" },
+        "upiId": { "type": "string", "maxLength": 100 },
+        "utr": { "type": "string", "maxLength": 50, "minLength": 6 },
+        "status": { "type": "string", "enum": ["Pending", "Verified", "Rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "itemType": { "type": "string", "enum": ["service", "product", "booking", "other", "package"] },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "packageName": { "type": "string", "enum": ["basic", "premium", "featured"] },
+        "contactPhone": { "type": "string", "maxLength": 15 }
+      },
+      "required": ["id", "customerName", "paymentPurpose", "amount", "upiId", "utr", "status", "createdAt", "itemType", "itemId"]
+    }
+  },
+  "firestore": {
+    "listings/{listingId}": {
+      "schema": "PropertyListing",
+      "description": "Property Listings main collection"
+    },
+    "feedbacks/{feedbackId}": {
+      "schema": "UserFeedback",
+      "description": "User Feedbacks and Issues collection"
+    },
+    "payments/{paymentId}": {
+      "schema": "ManaGruhamPayment",
+      "description": "UPI offline-verifiable payments tracker"
+    }
+  }
+}

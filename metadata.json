@@ -1,0 +1,6 @@
+{
+  "name": "మనం గృహం రియల్ యాప్",
+  "description": "ఆంధ్రప్రదేశ్ లొకేషన్ ఆధారిత ఇల్లు వెతుకుడు, వెరిఫైడ్ రియల్ ఎస్టేట్ లిస్టింగ్స్ కోసం ఒక ప్రొఫెషనల్ ప్లాట్ఫామ్.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

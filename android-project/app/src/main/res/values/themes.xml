@@ -1,0 +1,12 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.ManaGruhamRealApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/amber_500</item>
+        <item name="colorPrimaryVariant">@color/stone_950</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor">@color/stone_950</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

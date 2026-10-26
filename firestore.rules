@@ -1,0 +1,162 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- GLOBAL SAFETY NET (DEFAULT-DENY) ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE SECURITY PRIMITIVES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isEmailVerified() && (
+        request.auth.token.email == "injarapusivaraghava@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- VALIDATION BLUEPRINTS (ANTI-UPDATE-GAPS) ---
+
+    function isValidPropertyListing(data) {
+      return data.keys().hasAll([
+        'id', 'title', 'description', 'price', 'priceFormatted', 'type', 'status',
+        'city', 'area', 'size', 'imageUrl', 'isApproved', 'contactName', 'contactPhone',
+        'submittedBy', 'createdAt'
+      ]) &&
+      data.keys().size() <= 30 && // permit optional fields like beds, baths, age, facing, features, payment stuff
+      data.id is string && data.id.size() <= 128 &&
+      data.title is string && data.title.size() <= 100 &&
+      data.description is string && data.description.size() <= 1000 &&
+      data.price is number && data.price >= 0 &&
+      data.priceFormatted is string && data.priceFormatted.size() <= 50 &&
+      data.type is string && data.type in ['house', 'apartment', 'plot', 'commercial', 'farm_land'] &&
+      data.status is string && data.status in ['sale', 'rent', 'lease'] &&
+      data.city is string && data.city.size() <= 50 &&
+      data.area is string && data.area.size() <= 50 &&
+      data.size is string && data.size.size() <= 50 &&
+      data.imageUrl is string && data.imageUrl.size() <= 500 &&
+      data.isApproved is string && data.isApproved in ['Yes', 'Pending', 'No'] &&
+      data.contactName is string && data.contactName.size() <= 100 &&
+      data.contactPhone is string && data.contactPhone.size() <= 15 &&
+      data.submittedBy is string && data.submittedBy.size() <= 128 &&
+      data.createdAt is string && data.createdAt.size() <= 50;
+    }
+
+    function isValidUserFeedback(data) {
+      return data.keys().hasAll(['id', 'name', 'contact', 'type', 'message', 'createdAt']) &&
+      data.keys().size() == 6 &&
+      data.id is string && data.id.size() <= 128 &&
+      data.name is string && data.name.size() <= 100 &&
+      data.contact is string && data.contact.size() <= 100 &&
+      data.type is string && data.type in ['feature', 'issue'] &&
+      data.message is string && data.message.size() <= 1000 &&
+      data.createdAt is string && data.createdAt.size() <= 50;
+    }
+
+    function isValidManaGruhamPayment(data) {
+      return data.keys().hasAll([
+        'id', 'customerName', 'paymentPurpose', 'amount', 'upiId', 'utr', 'status',
+        'createdAt', 'itemType', 'itemId'
+      ]) &&
+      data.keys().size() <= 12 && // Allow optional fields verifiedAt, packageName, contactPhone
+      data.id is string && data.id.size() <= 128 &&
+      data.customerName is string && data.customerName.size() <= 100 &&
+      data.paymentPurpose is string && data.paymentPurpose.size() <= 200 &&
+      data.amount is number && data.amount >= 0 &&
+      data.upiId is string && data.upiId.size() <= 100 &&
+      data.utr is string && data.utr.size() >= 6 && data.utr.size() <= 50 &&
+      data.status is string && data.status in ['Pending', 'Verified', 'Rejected'] &&
+      data.createdAt is string && data.createdAt.size() <= 50 &&
+      data.itemType is string && data.itemType in ['service', 'product', 'booking', 'other', 'package'] &&
+      data.itemId is string && data.itemId.size() <= 128;
+    }
+
+    // --- COLLECTION RULES ---
+
+    // 1. PROPERTY LISTINGS
+    match /listings/{listingId} {
+      allow get: if true; // Publicly viewable
+      allow list: if true; // Publicly searchable with filter clauses
+      
+      allow create: if isEmailVerified() && 
+                      isValidId(listingId) && 
+                      isValidPropertyListing(incoming()) && 
+                      (
+                        isAdmin() ||
+                        (incoming().submittedBy == request.auth.uid && incoming().isApproved == 'Pending')
+                      );
+                      
+      allow update: if isEmailVerified() && 
+                      isValidId(listingId) && 
+                      isValidPropertyListing(incoming()) && 
+                      incoming().submittedBy == existing().submittedBy && // Guard immutability of submittedBy
+                      (
+                        isAdmin() || // Admins have full editing rights
+                        (
+                          // Standard Owner Actions: update basic info like title/price/contact, keeping status unmodified
+                          existing().submittedBy == request.auth.uid &&
+                          incoming().isApproved == existing().isApproved &&
+                          incoming().paymentStatus == existing().paymentStatus
+                        )
+                      );
+                      
+      allow delete: if isEmailVerified() && (isAdmin() || existing().submittedBy == request.auth.uid);
+    }
+
+    // 2. USER FEEDBACK (Create-only for clients, Read/Delete only for Admin)
+    match /feedbacks/{feedbackId} {
+      allow get, delete: if isAdmin();
+      allow list: if isAdmin(); // Avoid PII feedback leak
+      
+      allow create: if isValidId(feedbackId) && isValidUserFeedback(incoming());
+      allow update: if false; // Feedbacks are write-once, immutable
+    }
+
+    // 3. SECURE PAYMENTS (Verified & Managed securely)
+    match /payments/{paymentId} {
+      allow get: if isEmailVerified() && (isAdmin() || existing().contactPhone == request.auth.token.phone_number || existing().customerName == request.auth.token.name);
+      allow list: if isAdmin(); // Only admins can list all transaction reference numbers
+      
+      allow create: if isEmailVerified() && 
+                      isValidId(paymentId) && 
+                      isValidManaGruhamPayment(incoming()) &&
+                      incoming().status == 'Pending'; // All submitted payments must start as Pending verification
+                      
+      allow update: if isEmailVerified() && 
+                      isValidId(paymentId) && 
+                      isValidManaGruhamPayment(incoming()) &&
+                      existing().status == 'Pending' && // Terminal state locking: cannot alter Verified/Rejected txn status!
+                      isAdmin() && // Only verified admins can process status transitions
+                      incoming().diff(existing()).affectedKeys().hasOnly(['status', 'verifiedAt']); // Strict Action validation: can only update status & verifiedAt fields
+                      
+      allow delete: if isAdmin();
+    }
+
+    // 4. BUYER REQUESTS
+    match /buyer_requests/{requestId} {
+      allow get, list: if true; // anyone can view buyer requests
+      allow create: if isValidId(requestId); // anyone can submit buyer requests
+      allow update, delete: if isEmailVerified() && (isAdmin() || existing().submittedBy == request.auth.uid);
+    }
+  }
+}
